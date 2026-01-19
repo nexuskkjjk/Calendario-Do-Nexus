@@ -10,8 +10,16 @@ export interface CalendarEvent {
   location: string;
   value: number;
   color: EventColor;
-  googleEventId?: string; // Campo para integração futura
+  googleEventId?: string;
   isSynced?: boolean;
 }
 
-export type ViewType = 'calendar' | 'add' | 'share' | 'recent' | 'settings';
+export type ViewType = 'calendar' | 'add' | 'share' | 'recent' | 'settings' | 'chat';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: Date;
+  isFunctionCall?: boolean;
+}
