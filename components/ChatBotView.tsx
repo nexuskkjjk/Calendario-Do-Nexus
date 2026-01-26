@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
@@ -24,7 +23,7 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
     {
       id: 'welcome',
       role: 'model',
-      text: "Olá Victor! Sou sua IA Elite. Posso gerenciar sua agenda agora mesmo. Tente dizer: 'Anota reunião amanhã às 15h'.",
+      text: "Olá! Sou seu assistente Elite. Posso agendar compromissos ou tirar suas dúvidas. O que manda hoje?",
       timestamp: new Date()
     }
   ]);
@@ -46,7 +45,7 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `Diga com tom profissional e prestativo: ${text}` }] }],
+        contents: [{ parts: [{ text: `Diga com tom prestativo e natural: ${text}` }] }],
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -119,19 +118,30 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
       const chat = ai.chats.create({
         model: 'gemini-3-pro-preview',
         config: {
-          systemInstruction: `Você é o Elite Assistant. Hoje é ${new Date().toLocaleDateString()}. 
-          Sua principal função é criar eventos para o usuário. Sempre use a ferramenta 'create_calendar_event' quando detectar uma intenção de agendamento.
-          Confirme a criação com entusiasmo elegante.`,
+          systemInstruction: `Você é o Elite Assistant. Hoje é ${new Date().toLocaleDateString()}.
+          
+          Seus objetivos:
+          1. Tirar dúvidas do usuário e conversar de forma educada e prestativa.
+          2. Agendar eventos quando solicitado usando a ferramenta 'create_calendar_event'.
+
+          IMPORTANTE:
+          - Se você usar a ferramenta para agendar, GERE TAMBÉM UMA RESPOSTA DE TEXTO confirmando o agendamento de forma simpática (ex: "Pronto! Agendei [evento] para [data]. Posso ajudar em algo mais?").
+          - Se o usuário só fizer uma pergunta, responda a pergunta claramente.
+          - Não seja robótico. Tenha personalidade.`,
           tools: [{ functionDeclarations: [createEventTool] }]
         }
       });
 
       const result = await chat.sendMessage({ message: inputText });
-      let finalResponseText = result.text || "Prontinho! Acabei de processar seu pedido.";
+      
+      // Usa a resposta de texto da IA. Se a IA chamou a função mas não retornou texto (raro, mas possível), usamos um fallback.
+      let finalResponseText = result.text;
+      let functionCalled = false;
 
       if (result.functionCalls) {
         for (const fc of result.functionCalls) {
           if (fc.name === 'create_calendar_event') {
+            functionCalled = true;
             const args = fc.args as any;
             const newEvent: CalendarEvent = {
               id: Math.random().toString(36).substr(2, 9),
@@ -145,9 +155,18 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
               isSynced: true
             };
             onAddEvent(newEvent);
-            finalResponseText = `Excelente! O evento "${args.title}" foi agendado com sucesso para o dia ${args.date.split('-').reverse().join('/')} às ${args.time}.`;
           }
         }
+        
+        // Se a IA chamou a função mas veio sem texto, adicionamos confirmação padrão.
+        if (!finalResponseText) {
+          finalResponseText = "Agendamento realizado com sucesso! Precisa de mais alguma coisa?";
+        }
+      }
+
+      // Fallback final se nada vier
+      if (!finalResponseText) {
+        finalResponseText = "Entendido.";
       }
 
       const aiMsg: ChatMessage = {
@@ -155,14 +174,19 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
         role: 'model',
         text: finalResponseText,
         timestamp: new Date(),
-        isFunctionCall: !!result.functionCalls
+        isFunctionCall: functionCalled
       };
       setMessages(prev => [...prev, aiMsg]);
+      
+      // Fala a resposta automaticamente
+      speakMessage(finalResponseText, aiMsg.id);
+
     } catch (error) {
+      console.error(error);
       setMessages(prev => [...prev, {
         id: 'error',
         role: 'model',
-        text: "Houve um pequeno erro na conexão, mas você pode tentar novamente agora.",
+        text: "Desculpe, tive um problema de conexão. Pode repetir?",
         timestamp: new Date()
       }]);
     } finally {

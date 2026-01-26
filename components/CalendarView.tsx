@@ -44,13 +44,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onDateClick }) => {
         <div className="flex gap-2">
           <button 
             onClick={prevMonth} 
-            className="w-10 h-10 flex items-center justify-center bg-[#11141b] rounded-xl text-gray-500 active:scale-90 transition-all"
+            className="w-10 h-10 flex items-center justify-center bg-[#11141b] rounded-xl text-gray-500 active:scale-90 transition-all border border-white/5"
           >
             <ChevronLeft className="w-5 h-5 stroke-[3]" />
           </button>
           <button 
             onClick={nextMonth} 
-            className="w-10 h-10 flex items-center justify-center bg-[#11141b] rounded-xl text-gray-500 active:scale-90 transition-all"
+            className="w-10 h-10 flex items-center justify-center bg-[#11141b] rounded-xl text-gray-500 active:scale-90 transition-all border border-white/5"
           >
             <ChevronRight className="w-5 h-5 stroke-[3]" />
           </button>
@@ -59,15 +59,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onDateClick }) => {
 
       <div className="grid grid-cols-7 px-1 pb-4">
         {weekDays.map(day => (
-          <div key={day} className="text-center text-[8px] font-bold text-gray-800 uppercase tracking-widest">
+          <div key={day} className="text-center text-[8px] font-bold text-gray-600 uppercase tracking-widest opacity-70">
             {day}
           </div>
         ))}
       </div>
 
-      <div className="calendar-grid">
+      <div className="calendar-grid bg-[#1a1c23] border-y border-white/5">
         {Array.from({ length: Math.max(0, startOffset) }).map((_, i) => (
-          <div key={`empty-${i}`} className="calendar-cell bg-[#0b0e14]/50 opacity-20"></div>
+          <div key={`empty-${i}`} className="calendar-cell bg-[#0b0e14]/40"></div>
         ))}
         
         {Array.from({ length: totalDays }).map((_, i) => {
@@ -79,41 +79,41 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onDateClick }) => {
             <div 
               key={day} 
               onClick={() => onDateClick(new Date(year, month, day))}
-              className={`calendar-cell group transition-all active:bg-[#1a1c23]/30 cursor-pointer`}
+              className={`calendar-cell group transition-all active:bg-[#1a1c23] cursor-pointer border-r border-b border-white/[0.02] ${isToday ? 'bg-[#16181f]' : ''}`}
             >
               <div className="flex flex-col h-full relative z-10">
-                <div className="flex justify-center">
-                   <span className={`text-[12px] font-black tracking-tighter ${isToday ? 'text-sky-400' : 'text-gray-500'}`}>
+                <div className="flex justify-center pt-1">
+                   <span className={`text-[12px] font-black tracking-tighter w-6 h-6 flex items-center justify-center rounded-full transition-all ${isToday ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30 scale-110' : 'text-gray-400'}`}>
                      {day}
                    </span>
                 </div>
                 
-                <div className="flex-1 mt-1 flex flex-col gap-0.5 overflow-hidden">
-                  {dayEvents.map((e, idx) => (
+                <div className="flex-1 mt-1.5 flex flex-col gap-0.5 px-0.5 overflow-hidden">
+                  {dayEvents.slice(0, 3).map((e, idx) => (
                     <div key={e.id} className="w-full">
-                      {idx === 0 ? (
-                        <div className={`px-1 py-0.5 rounded-[2px] border ${COLOR_BORDER_MAP[e.color] || 'border-gray-500'} ${(COLOR_MAP[e.color] || 'bg-gray-500')}/10 overflow-hidden`}>
-                          <p className="text-[6px] font-black text-white leading-tight truncate uppercase tracking-tighter">
+                      {idx === 0 || dayEvents.length <= 2 ? (
+                        <div className={`px-1 py-[2px] rounded-[2px] border-l-2 ${COLOR_BORDER_MAP[e.color] || 'border-gray-500'} bg-white/[0.02] overflow-hidden`}>
+                          <p className={`text-[6px] font-bold leading-none truncate uppercase tracking-tighter ${isToday ? 'text-gray-200' : 'text-gray-400'}`}>
                             {e.title}
                           </p>
                         </div>
                       ) : (
-                        <div className={`h-0.5 w-full rounded-full ${COLOR_MAP[e.color] || 'bg-gray-500'} opacity-40`} />
+                         // Se tiver muitos eventos, mostra bolinhas nos seguintes
+                         <div className={`h-1 w-1 rounded-full ${COLOR_MAP[e.color] || 'bg-gray-500'} mx-auto mt-0.5`} />
                       )}
                     </div>
                   ))}
+                  {dayEvents.length > 3 && (
+                     <div className="text-[5px] text-center text-gray-600 font-black">+ {dayEvents.length - 3}</div>
+                  )}
                 </div>
               </div>
-
-              {isToday && (
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-sky-500" />
-              )}
             </div>
           );
         })}
 
         {Array.from({ length: Math.max(0, nextMonthCells) }).map((_, i) => (
-           <div key={`next-${i}`} className="calendar-cell bg-[#0b0e14]/50 opacity-20"></div>
+           <div key={`next-${i}`} className="calendar-cell bg-[#0b0e14]/40"></div>
         ))}
       </div>
     </div>

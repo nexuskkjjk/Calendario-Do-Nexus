@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { X, Calendar, Clock, MapPin, DollarSign, AlignLeft, Check, Mic, Loader2, Globe } from 'lucide-react';
 import { CalendarEvent, EventColor } from '../types';
@@ -33,6 +32,7 @@ const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
   const processAudioWithGemini = async (base64Audio: string) => {
     setIsProcessing(true);
     try {
+      // Chave de API atualizada conforme solicitação e guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const today = new Date().toISOString().split('T')[0];
       
