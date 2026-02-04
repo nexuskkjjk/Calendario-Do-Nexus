@@ -549,22 +549,22 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
     return { time: "09:00", textMatch: "" }; 
   };
 
-  // --- LOCATION EXTRACTION (NEW) ---
+  // --- LOCATION EXTRACTION (IMPROVED) ---
   const extractLocation = (text: string, removedTerms: string[]) => {
       let clean = text;
       // Remove known terms first to avoid false positives (like "no dia")
       removedTerms.forEach(term => { clean = clean.replace(term, ' '); });
       
       // Regex detects "na X", "no Y", "em Z", "local X"
-      // Captures the preposition and the following words until end or special separators
-      const locRegex = /\b(na|no|em|local|no espaco|na rua|no clube|na casa)\s+([^,.-]+)/i;
+      // More aggressive "Local" matching to strip it from title
+      const locRegex = /\b(no local|no espaço|no espaco|na rua|no clube|na casa|no salao|no salão|na chacara|na chácara|local|espaco|espaço|lugar|restaurante|pizzaria|em)\s+([^,.;-]+?)(?=\s+(?:as|às|at|@)\s+\d|$|[,.;-])/i;
       const match = clean.match(locRegex);
       
       if (match) {
          const fullMatch = match[0];
          let location = match[2].trim();
          
-         // Cleanup: if location ends with " as" or " às" (time indicators), strip them
+         // Cleanup: if location ends with " as" or " às" (time indicators), strip them (redundant with lookahead but safe)
          location = location.replace(/\s+(as|às|at|@)\s*\d.*$/i, '');
          
          return { location, fullMatch };
@@ -635,7 +635,8 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
       'eh', 'é',
       'inicio', 'início', 'fim', 'termino', 'término', 'durante', 'pelo', 'pela',
       'servico', 'serviço', 'fazer', 'realizar', 'ter', 'pra',
-      'sera', 'será', 'realizado', 'realizada', 'acontecer', 'acontecera', 'acontecerá', 'agendado'
+      'sera', 'será', 'realizado', 'realizada', 'acontecer', 'acontecera', 'acontecerá', 'agendado',
+      'local', 'lugar' // Added local to general stop words too
     ];
     const words = clean.split(/[\s]+/);
     const filteredWords = words.filter(w => {
@@ -651,6 +652,46 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onAddEvent, onBack }) => {
     title = title.replace(/[.,;:\/-]+$/, '');
     title = title.replace(/^[.,;:\/-]+/, '');
     title = title.trim();
+
+    // --- Lógica de Formatação Estrita para Eventos Específicos ---
+    // O usuário solicitou: "Casamento Julia", "Festa Nome", "Aniversário Nome"
+    // removendo artigos e preposições (um, da, de, do...)
+
+    const specialTypes = [
+        { triggers: ['casamento', 'matrimonio', 'bodas'], label: 'Casamento' },
+        { triggers: ['festa', 'festinha', 'evento'], label: 'Festa' },
+        { triggers: ['aniversario', 'niver', 'parabens'], label: 'Aniversário' }
+    ];
+
+    const titleLower = normalize(title.toLowerCase());
+
+    for (const type of specialTypes) {
+        // Verifica se o título atual contém algum dos gatilhos
+        if (type.triggers.some(trigger => titleLower.includes(trigger))) {
+            
+            let namePart = titleLower;
+            
+            // Remove a palavra gatilho (ex: remove 'casamento')
+            type.triggers.forEach(trigger => {
+                namePart = namePart.replace(trigger, '');
+            });
+
+            // Remove conectivos comuns e palavras de local que possam ter sobrado
+            // Adicionado 'local', 'lugar', 'espaco' para garantir que não fiquem no nome
+            namePart = namePart.replace(/\b(um|uma|uns|umas|de|da|do|dos|das|o|a|os|as|para|com|em|no|na|local|lugar|espaco|espaço|no local|no lugar)\b/g, ' ');
+            
+            // Limpa espaços extras
+            namePart = namePart.replace(/\s+/g, ' ').trim();
+
+            // Reconstrói o título com Capitalização
+            if (namePart.length > 0) {
+                 const capitalizedName = namePart.split(' ')
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(' ');
+                 return `${type.label} ${capitalizedName}`;
+            }
+        }
+    }
     
     return title.length > 0 ? title.charAt(0).toUpperCase() + title.slice(1) : "Compromisso";
   };
