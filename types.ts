@@ -14,7 +14,7 @@ export interface CalendarEvent {
   isSynced?: boolean;
 }
 
-export type ViewType = 'calendar' | 'add' | 'share' | 'recent' | 'settings' | 'chat';
+export type ViewType = 'calendar' | 'add' | 'edit' | 'share' | 'recent' | 'settings' | 'chat';
 
 export interface ChatMessage {
   id: string;

@@ -1,15 +1,17 @@
+
 import React from 'react';
-import { ChevronLeft, Trash2, MapPin, DollarSign, Clock, Calendar } from 'lucide-react';
+import { ChevronLeft, Trash2, MapPin, DollarSign, Clock, Calendar, Pencil } from 'lucide-react';
 import { CalendarEvent } from '../types';
 import { COLOR_MAP } from '../constants';
 
 interface RecentEventsViewProps {
   events: CalendarEvent[];
   onDelete: (id: string) => void;
+  onEdit: (event: CalendarEvent) => void;
   onBack: () => void;
 }
 
-const RecentEventsView: React.FC<RecentEventsViewProps> = ({ events, onDelete, onBack }) => {
+const RecentEventsView: React.FC<RecentEventsViewProps> = ({ events, onDelete, onEdit, onBack }) => {
   const sortedEvents = [...events].sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime());
 
   return (
@@ -30,16 +32,26 @@ const RecentEventsView: React.FC<RecentEventsViewProps> = ({ events, onDelete, o
         ) : (
           sortedEvents.map(event => (
             <div key={event.id} className="bg-[#1a1c23] p-7 rounded-[2.8rem] flex flex-col gap-6 border border-white/5 relative shadow-2xl shadow-black/40">
-              {/* Botão Deletar */}
-              <button 
-                onClick={() => onDelete(event.id)}
-                className="absolute top-7 right-7 p-2 text-gray-700 hover:text-rose-500 active:scale-90 transition-all"
-              >
-                <Trash2 className="w-5 h-5 stroke-[2.5]" />
-              </button>
+              
+              <div className="absolute top-7 right-7 flex gap-2">
+                {/* Botão Editar */}
+                <button 
+                  onClick={() => onEdit(event)}
+                  className="p-2 text-gray-700 hover:text-white active:scale-90 transition-all"
+                >
+                  <Pencil className="w-5 h-5 stroke-[2.5]" />
+                </button>
+                {/* Botão Deletar */}
+                <button 
+                  onClick={() => onDelete(event.id)}
+                  className="p-2 text-gray-700 hover:text-rose-500 active:scale-90 transition-all"
+                >
+                  <Trash2 className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              </div>
               
               {/* Cabeçalho: Indicador + Título + Info */}
-              <div className="flex items-center gap-6 pr-10">
+              <div className="flex items-center gap-6 pr-20">
                 <div className={`w-3 h-12 rounded-full ${COLOR_MAP[event.color]} shadow-lg shadow-black/50 shrink-0`} />
                 <div className="overflow-hidden">
                   <h3 className="font-black text-xl text-white leading-tight truncate tracking-tight mb-1">{event.title}</h3>

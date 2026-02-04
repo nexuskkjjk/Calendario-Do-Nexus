@@ -1,24 +1,21 @@
-import React, { useState, useRef } from 'react';
-import { X, Calendar, Clock, MapPin, DollarSign, AlignLeft, Check, Mic, Loader2, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, DollarSign, AlignLeft, Check, Mic, Loader2, MicOff } from 'lucide-react';
 import { CalendarEvent, EventColor } from '../types';
 import { COLOR_MAP } from '../constants';
-import { GoogleGenAI, Type } from "@google/genai";
 
 interface AddEventViewProps {
   onSave: (event: CalendarEvent) => void;
   onCancel: () => void;
+  initialDate?: Date;
+  initialEvent?: CalendarEvent | null;
 }
 
-const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
+const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel, initialDate, initialEvent }) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [shouldSync, setShouldSync] = useState(true);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
 
   const [formData, setFormData] = useState({
     title: '',
-    date: new Date().toISOString().split('T')[0],
+    date: initialDate ? initialDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     description: '',
     location: '',
@@ -26,110 +23,85 @@ const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
     color: 'blue' as EventColor
   });
 
+  useEffect(() => {
+    if (initialEvent) {
+      setFormData({
+        title: initialEvent.title,
+        date: initialEvent.date,
+        time: initialEvent.time,
+        description: initialEvent.description || '',
+        location: initialEvent.location || '',
+        value: initialEvent.value ? initialEvent.value.toString() : '',
+        color: initialEvent.color
+      });
+    }
+  }, [initialEvent]);
+
   const colors: EventColor[] = ['red', 'green', 'purple', 'blue', 'yellow'];
 
-  // Gemini AI Logic
-  const processAudioWithGemini = async (base64Audio: string) => {
-    setIsProcessing(true);
-    try {
-      // Chave de API atualizada conforme solicitação e guidelines
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const today = new Date().toISOString().split('T')[0];
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              { inlineData: { mimeType: "audio/webm", data: base64Audio } },
-              { text: `Extraia os detalhes deste evento de calendário. Hoje é dia ${today}. 
-                       Retorne um JSON com os campos: title, date (YYYY-MM-DD), time (HH:mm), location, value (número), description, color (red, green, purple, blue ou yellow). 
-                       Se não houver valor, use 0. Se não houver cor, escolha uma que combine.` }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              date: { type: Type.STRING },
-              time: { type: Type.STRING },
-              location: { type: Type.STRING },
-              value: { type: Type.NUMBER },
-              description: { type: Type.STRING },
-              color: { type: Type.STRING }
-            },
-            required: ["title", "date", "time"]
-          }
-        }
-      });
-
-      const result = JSON.parse(response.text);
-      setFormData(prev => ({
-        ...prev,
-        title: result.title || prev.title,
-        date: result.date || prev.date,
-        time: result.time || prev.time,
-        location: result.location || prev.location,
-        value: result.value?.toString() || prev.value,
-        description: result.description || prev.description,
-        color: (result.color as EventColor) || prev.color
-      }));
-    } catch (error) {
-      console.error("Erro na IA:", error);
-      alert("Não consegui entender o áudio. Tente novamente ou digite manualmente.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          processAudioWithGemini(base64Audio);
-        };
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Erro ao acessar microfone:", err);
-      alert("Acesso ao microfone negado.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+  // --- Lógica Nativa de Voz (Web Speech API) ---
+  const toggleRecording = () => {
+    if (isRecording) {
       setIsRecording(false);
+      // O stop é manipulado automaticamente pelo onend ou se a API suportar abort
+      return;
     }
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Seu navegador não suporta reconhecimento de voz nativo.");
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      
+      // Lógica simples de preenchimento baseada no texto falado
+      if (!formData.title) {
+        setFormData(prev => ({ ...prev, title: transcript.charAt(0).toUpperCase() + transcript.slice(1) }));
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          description: prev.description ? `${prev.description}\n${transcript}` : transcript 
+        }));
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech Error:", event.error);
+      setIsRecording(false);
+      alert("Erro ao reconhecer voz. Verifique o microfone.");
+    };
+
+    recognition.start();
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!formData.title.trim()) return;
+    
+    // Se estiver editando (initialEvent existe), mantém o ID, senão cria novo
+    const eventId = initialEvent ? initialEvent.id : Math.random().toString(36).substr(2, 9);
+    
     onSave({
-      id: Math.random().toString(36).substr(2, 9),
+      id: eventId,
       ...formData,
       value: Number(formData.value) || 0,
-      isSynced: shouldSync
+      isSynced: false
     });
   };
 
@@ -140,26 +112,25 @@ const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
           Cancelar
         </button>
         <div className="flex-1 flex justify-center pr-12">
-          <h2 className="text-lg font-black tracking-tighter uppercase whitespace-nowrap">Nova Anotação</h2>
+          <h2 className="text-lg font-black tracking-tighter uppercase whitespace-nowrap">
+            {initialEvent ? "Editar Anotação" : "Nova Anotação"}
+          </h2>
         </div>
       </div>
 
-      {/* IA Voice Button Section */}
+      {/* Voice Button Section */}
       <div className="mb-8 flex flex-col items-center gap-4">
         <button
           type="button"
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
+          onClick={toggleRecording}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl ${
             isRecording ? 'bg-rose-500 scale-110 animate-pulse' : 'bg-[#1a1c23] border border-white/5 active:scale-90'
           }`}
         >
-          {isProcessing ? <Loader2 className="w-8 h-8 animate-spin text-sky-400" /> : <Mic className={`w-8 h-8 ${isRecording ? 'text-white' : 'text-gray-400'}`} />}
+          {isRecording ? <MicOff className="w-8 h-8 text-white" /> : <Mic className="w-8 h-8 text-gray-400" />}
         </button>
         <p className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em]">
-          {isProcessing ? "IA Processando..." : isRecording ? "Solte para analisar" : "Segure para falar (IA)"}
+          {isRecording ? "Ouvindo... (Toque para parar)" : "Toque para falar (Offline)"}
         </p>
       </div>
 
@@ -210,22 +181,6 @@ const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
           </div>
         </div>
 
-        <div className="bg-[#1a1c23] p-6 rounded-[2.8rem] border border-white/5 shadow-2xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center">
-                <Globe className="w-4 h-4 text-sky-400" />
-             </div>
-             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sincronizar Google</span>
-          </div>
-          <button 
-            type="button"
-            onClick={() => setShouldSync(!shouldSync)}
-            className={`w-12 h-6 rounded-full transition-all relative ${shouldSync ? 'bg-sky-500' : 'bg-gray-800'}`}
-          >
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${shouldSync ? 'left-7' : 'left-1'}`} />
-          </button>
-        </div>
-
         <div className="bg-[#1a1c23] p-7 rounded-[2.8rem] border border-white/5 shadow-2xl">
           <p className="text-[9px] font-black uppercase text-gray-600 tracking-widest mb-6 text-center">Cor de destaque</p>
           <div className="flex justify-between px-2">
@@ -247,7 +202,7 @@ const AddEventView: React.FC<AddEventViewProps> = ({ onSave, onCancel }) => {
           className="w-full py-6 bg-white text-black font-black text-sm uppercase tracking-[0.2em] rounded-[2rem] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4 shadow-2xl shadow-white/5"
         >
           <Check className="w-6 h-6 stroke-[4]" />
-          Concluir Anotação
+          {initialEvent ? "Salvar Alterações" : "Concluir Anotação"}
         </button>
       </form>
     </div>

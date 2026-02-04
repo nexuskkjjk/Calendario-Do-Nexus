@@ -1,6 +1,6 @@
 {
-  "name": "Meu Calendário Elite",
-  "description": "A sophisticated dark-themed calendar application for managing events with custom colors, locations, and values. Features a range-based sharing system, upcoming event tracking, and Gemini AI voice annotations.",
+  "name": "Nexus",
+  "description": "Nexus: A sophisticated dark-themed calendar application for managing events with custom colors, locations, and values. Features a range-based sharing system, upcoming event tracking, and Gemini AI voice annotations.",
   "requestFramePermissions": [
     "microphone"
   ]

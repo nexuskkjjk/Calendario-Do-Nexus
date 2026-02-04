@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ChevronLeft, Zap, Check, Copy, MessageCircle, Share2 } from 'lucide-react';
 import { CalendarEvent } from '../types';
@@ -20,8 +19,24 @@ const ShareView: React.FC<ShareViewProps> = ({ events, onBack }) => {
   const generateShareText = () => {
     if (filteredEvents.length === 0) return "Nenhum evento agendado para este período.";
     
-    return `*Agenda Elite* 🚀\n_Período: ${range.start.split('-').reverse().join('/')} a ${range.end.split('-').reverse().join('/')}_\n\n` + 
-      filteredEvents.map(e => `• *${e.title}*\n  📅 ${e.date.split('-').reverse().join('/')} às ${e.time}\n  📍 ${e.location || 'Local não definido'}\n`).join('\n');
+    // Ordenar cronologicamente para garantir que a lista faça sentido
+    const sorted = [...filteredEvents].sort((a, b) => 
+      new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()
+    );
+
+    const list = sorted.map(e => {
+      const parts = e.date.split('-'); // YYYY-MM-DD
+      const day = parts[2];
+      const month = parts[1];
+      
+      // Usar Localização prioritariamente. Se não houver, usa o Título como fallback.
+      const displayContent = e.location ? e.location : e.title;
+      
+      // Formato: "22/03 / Local Horário"
+      return `${day}/${month} / ${displayContent} ${e.time}`;
+    }).join('\n');
+
+    return `Agenda\n${list}`;
   };
 
   const handleCopy = () => {
@@ -53,8 +68,8 @@ const ShareView: React.FC<ShareViewProps> = ({ events, onBack }) => {
         </div>
         
         <div className="text-center space-y-2">
-           <h3 className="text-lg font-black uppercase tracking-tight">Compartilhar Vibe</h3>
-           <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest px-4">Defina as datas para gerar o resumo da sua agenda</p>
+           <h3 className="text-lg font-black uppercase tracking-tight">Compartilhar Lista</h3>
+           <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest px-4">Defina as datas para gerar a lista simplificada</p>
         </div>
 
         <div className="w-full space-y-4 pt-2">
@@ -94,7 +109,7 @@ const ShareView: React.FC<ShareViewProps> = ({ events, onBack }) => {
       </div>
 
       <div className="mt-8 px-4 opacity-30 text-center">
-        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-500">O texto será formatado com emojis e negritos para facilitar a leitura no mobile.</p>
+        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-500">Formato compacto: Data / Local Horário</p>
       </div>
     </div>
   );
